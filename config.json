@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "id": "minimax_default",
+      "provider": "minimax",
+      "name": "MiniMax",
+      "apiKey": "sk-api-MMVY9mYpedvYoP76eT9hCsJh5lkPQXH-e7qk2jR-kN6hMm3VKmEK2wYuO3-2NhUXmv-ULeo3-o0yUd7Tj44sS9kzzxwwnYZohrHY7lfjXBTU2bFkDY0cBaE",
+      "baseUrl": "https://api.minimax.chat/v1",
+      "modelName": "MiniMax-M2.7",
+      "enabled": true
+    },
+    {
+      "id": "deepseek_default",
+      "provider": "deepseek",
+      "name": "DeepSeek",
+      "apiKey": "",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "modelName": "deepseek-chat",
+      "enabled": true
+    }
+  ]
+}
