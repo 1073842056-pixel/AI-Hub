@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Hub</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- 顶部统计栏 -->
+    <header class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <div class="stat-value" id="statProviders">-</div>
+        <div class="stat-label">Providers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statConfigs">-</div>
+        <div class="stat-label">Configs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statTemplates">-</div>
+        <div class="stat-label">Templates</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statModels">-</div>
+        <div class="stat-label">Models</div>
+      </div>
+    </header>
+
+    <!-- 导航 Tab -->
+    <nav class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" data-tab="studio">Studio</button>
+      <button class="nav-tab" data-tab="providers">Providers</button>
+      <button class="nav-tab" data-tab="models">Models</button>
+      <button class="nav-tab" data-tab="exports">Exports</button>
+    </nav>
+
+    <!-- 内容区 -->
+    <div class="tab-content-container" id="tabContentContainer">
+
+      <!-- ================================================ -->
+      <!-- Studio Tab - 三栏布局: Chat | Editor | Files   -->
+      <!-- ================================================ -->
+      <div class="tab-panel active" id="panel-studio">
+        <div class="workspace">
+
+          <!-- 左：Chat 面板 -->
+          <aside class="panel panel-chat" id="panelChat">
+
+            <!-- Chat 顶部：模型快速切换 -->
+            <div class="chat-header" id="chatHeader">
+              <div class="chat-model-badge" id="chatModelBadge" onclick="toggleModelDropdown()" title="点击切换模型">
+                <span class="chat-model-icon">🤖</span>
+                <span class="chat-model-name" id="chatModelName">选择模型</span>
+                <span class="chat-model-arrow">▾</span>
+              </div>
+              <!-- 快速模型下拉 -->
+              <div class="model-dropdown" id="modelDropdown" style="display:none;">
+                <div class="model-dropdown-search">
+                  <input type="text" class="form-input" id="modelSearchInput" placeholder="搜索模型..." oninput="filterModelDropdown(this.value)">
+                </div>
+                <div class="model-dropdown-list" id="modelDropdownList"></div>
+              </div>
+            </div>
+
+            <div class="panel-header">
+              <span class="panel-title">Chat</span>
+              <div class="chat-config-inline">
+                <label class="form-label-inline">Temperature</label>
+                <div class="slider-wrap-inline">
+                  <input type="range" class="slider" id="sliderTemp" min="0" max="2" step="0.1" value="0.2">
+                  <span class="slider-value" id="tempValue">0.2</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 上下文选项 -->
+            <div class="chat-options">
+              <label class="checkbox-label">
+                <input type="checkbox" id="cbCurrentFile" checked>
+                <span class="checkbox-custom"></span> 带上当前文件
+              </label>
+              <label class="checkbox-label" id="labelTerminal">
+                <input type="checkbox" id="cbTerminal">
+                <span class="checkbox-custom"></span> 带上终端输出
+              </label>
+            </div>
+
+            <!-- 终端输出区（勾选后显示）-->
+            <div class="terminal-output-wrap" id="terminalOutputWrap" style="display:none;">
+              <div class="terminal-output-header">
+                <span class="form-label">Terminal Output</span>
+                <button class="btn-clear-terminal" onclick="clearTerminalOutput()">清空</button>
+              </div>
+              <textarea class="chat-input terminal-textarea" id="terminalOutput" placeholder="粘贴终端输出内容（错误信息、日志等）..." rows="4"></textarea>
+            </div>
+
+            <!-- 消息列表 -->
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-empty" id="chatEmpty">
+                <div class="chat-empty-icon">💬</div>
+                <div class="chat-empty-text">开始与 AI 对话</div>
+                <div class="chat-empty-hint">输入 / 调出命令面板，或直接输入消息</div>
+              </div>
+            </div>
+
+            <!-- 命令面板（/ 触发）-->
+            <div class="command-palette" id="commandPalette" style="display:none;">
+              <div class="command-palette-header">
+                <span class="command-palette-title">⚡ 命令面板</span>
+                <span class="command-palette-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+              </div>
+              <div class="command-list" id="commandList"></div>
+            </div>
+
+            <!-- 输入区 -->
+            <div class="chat-input-area">
+              <textarea class="chat-input" id="chatInput" placeholder="输入消息或 / 调出命令面板... (Enter 发送, Shift+Enter 换行)" rows="1"></textarea>
+              <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled>↑</button>
+            </div>
+          </aside>
+
+          <!-- 中：Editor 面板 -->
+          <main class="panel panel-editor" id="panelEditor">
+            <div class="editor-toolbar">
+              <button class="toolbar-btn" onclick="editorNew()">+ 新建</button>
+              <button class="toolbar-btn" onclick="editorReload()">↻ 重载</button>
+              <button class="toolbar-btn primary" onclick="editorSave()">💾 保存</button>
+              <div class="toolbar-spacer"></div>
+              <span class="editor-filename" id="editorFilename">—</span>
+              <span class="editor-status" id="editorStatus">只读</span>
+            </div>
+            <div class="editor-body" id="editorBody">
+              <textarea class="editor-textarea" id="editorTextarea" placeholder="从右侧文件列表打开文件，或使用 /code 等命令分析代码..." spellcheck="false"></textarea>
+              <div class="editor-guide" id="editorGuide">
+                <div class="editor-guide-icon">📄</div>
+                <div class="editor-guide-text">从右侧文件列表打开文件</div>
+                <div class="editor-guide-hint">或使用 /code 等斜杠命令分析代码</div>
+              </div>
+            </div>
+          </main>
+
+          <!-- 右：Files 面板 -->
+          <aside class="panel panel-files" id="panelFiles">
+            <div class="panel-header"><span class="panel-title">Files</span></div>
+            <div class="file-tree" id="fileTree"></div>
+          </aside>
+
+        </div>
+      </div>
+
+      <!-- ================================================ -->
+      <!-- Providers Tab                                   -->
+      <!-- ================================================ -->
+      <div class="tab-panel" id="panel-providers">
+        <div class="tab-page">
+          <div class="tab-page-header">
+            <div>
+              <h2 class="tab-page-title">模型提供商</h2>
+              <p class="tab-page-desc">管理已配置的 AI 模型提供商</p>
+            </div>
+          </div>
+          <div class="providers-grid" id="providersGrid"></div>
+          <div class="empty-state" id="providersEmpty">
+            <div class="empty-icon">🏢</div>
+            <div class="empty-text">暂无提供商</div>
+            <div class="empty-hint">在 Models Tab 添加模型后自动显示</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ -->
+      <!-- Models Tab                                      -->
+      <!-- ================================================ -->
+      <div class="tab-panel" id="panel-models">
+        <div class="tab-page">
+          <div class="tab-page-header">
+            <div>
+              <h2 class="tab-page-title">模型列表</h2>
+              <p class="tab-page-desc">管理已配置的语言模型</p>
+            </div>
+            <button class="btn-primary" onclick="openAddModelForm()">+ 添加模型</button>
+          </div>
+          <div class="models-list" id="modelsList"></div>
+          <div class="empty-state" id="modelsEmpty">
+            <div class="empty-icon">🤖</div>
+            <div class="empty-text">暂无模型</div>
+            <div class="empty-hint">点击右上角 "添加模型" 开始配置</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ -->
+      <!-- Exports Tab                                     -->
+      <!-- ================================================ -->
+      <div class="tab-panel" id="panel-exports">
+        <div class="tab-page">
+          <div class="tab-page-header">
+            <div>
+              <h2 class="tab-page-title">配置管理</h2>
+              <p class="tab-page-desc">导出或导入 AI Hub 配置</p>
+            </div>
+          </div>
+          <div class="exports-section">
+            <div class="export-card">
+              <div class="export-card-icon">📤</div>
+              <div class="export-card-info">
+                <h3>导出配置</h3>
+                <p>将当前所有配置（模型、API Key 等）导出为 JSON 文件</p>
+              </div>
+              <button class="btn-primary" onclick="exportConfig()">导出 JSON</button>
+            </div>
+            <div class="export-card">
+              <div class="export-card-icon">📥</div>
+              <div class="export-card-info">
+                <h3>导入配置</h3>
+                <p>从 JSON 文件恢复配置（将覆盖现有配置）</p>
+              </div>
+              <label class="btn-primary" style="cursor:pointer;">导入 JSON
+                <input type="file" accept=".json" style="display:none;" id="importFileInput" onchange="importConfig(this)">
+              </label>
+            </div>
+          </div>
+          <div class="export-preview">
+            <div class="form-label">配置预览</div>
+            <pre class="code-preview" id="configPreview">加载中...</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================================================ -->
+    <!-- 添加/编辑模型弹窗                                -->
+    <!-- ================================================ -->
+    <div class="modal-overlay" id="modelModal" style="display:none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modelModalTitle">添加模型</h3>
+          <button class="modal-close" onclick="closeModelForm()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">模型 ID *</label>
+            <input type="text" class="form-input" id="mId" placeholder="如: deepseek_custom">
+          </div>
+          <div class="form-group">
+            <label class="form-label">提供商 *</label>
+            <select class="form-select" id="mProvider">
+              <option value="">— 选择提供商 —</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="minimax">MiniMax</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="siliconflow">SiliconFlow</option>
+              <option value="other">其他 / Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">显示名称</label>
+            <input type="text" class="form-input" id="mName" placeholder="如: DeepSeek Chat">
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key *</label>
+            <input type="password" class="form-input" id="mApiKey" placeholder="sk-...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input type="text" class="form-input" id="mBaseUrl" placeholder="https://api.deepseek.com/v1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">模型名称 *</label>
+            <input type="text" class="form-input" id="mModelName" placeholder="如: deepseek-chat">
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="mEnabled" checked>
+              <span class="checkbox-custom"></span>
+              启用此模型
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModelForm()">取消</button>
+          <button class="btn-primary" onclick="saveModelForm()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部状态栏 -->
+    <footer class="status-bar">
+      <div class="status-item"><span class="status-dot online"></span><span id="statusModel">未选择模型</span></div>
+      <div class="status-item"><span id="statusTokens">Tokens: —</span></div>
+      <div class="status-item"><span id="statusTime">—</span></div>
+    </footer>
+
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+let config = { models: [] };
+let messages = [];
+let isStreaming = false;
+let currentFile = null;
+let commandPaletteVisible = false;
+let selectedCommandIndex = 0;
+let activeSlashCommand = null;
+
+// ============================================================
+// 斜杠命令定义 - Claude Code 风格
+// ============================================================
+const SLASH_COMMANDS = [
+  {
+    id: 'code',
+    label: '/code',
+    title: '分析代码',
+    description: '深入分析当前文件的代码逻辑、结构和实现',
+    icon: '🔍',
+    promptTemplate: (ctx) => `你是一个专业的代码分析助手。请分析以下代码，关注其：\n1. 整体结构和设计模式\n2. 核心逻辑和算法\n3. 潜在的 bug 或问题\n4. 改进建议\n\n【当前文件】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请给出详细的分析报告。`
+  },
+  {
+    id: 'review',
+    label: '/review',
+    title: '代码审查',
+    description: '专业的代码审查，发现问题并给出改进建议',
+    icon: '👀',
+    promptTemplate: (ctx) => `你是一个专业的代码审查员。请对以下代码进行全面的代码审查，关注：\n1. 代码质量与可读性\n2. 潜在 bug 和边界情况\n3. 安全漏洞\n4. 性能问题\n5. 最佳实践\n\n【当前文件】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请给出具体的改进建议和代码示例。`
+  },
+  {
+    id: 'refactor',
+    label: '/refactor',
+    title: '重构建议',
+    description: '提供代码重构方案，提升代码质量',
+    icon: '🔧',
+    promptTemplate: (ctx) => `你是一个代码重构专家。请分析以下代码并提供重构建议：\n1. 当前代码存在的问题\n2. 重构方案（分步骤）\n3. 重构后的代码示例\n4. 重构的风险和注意事项\n\n【当前文件】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请给出渐进式的重构方案。`
+  },
+  {
+    id: 'test',
+    label: '/test',
+    title: '生成测试',
+    description: '为当前代码生成单元测试或集成测试',
+    icon: '🧪',
+    promptTemplate: (ctx) => `你是一个测试工程师。请为以下代码生成全面的测试用例：\n1. 单元测试（覆盖主要函数和边界情况）\n2. 集成测试（如适用）\n3. 测试覆盖率分析\n\n【当前文件】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请提供可直接运行的测试代码，优先使用 Jest/Vitest 风格。`
+  },
+  {
+    id: 'explain',
+    label: '/explain',
+    title: '解释代码',
+    description: '详细解释代码的工作原理和执行流程',
+    icon: '📖',
+    promptTemplate: (ctx) => `你是一个耐心的技术导师。请详细解释以下代码：\n1. 这段代码的整体功能\n2. 关键变量和函数的作用\n3. 代码的执行流程\n4. 重要的设计决策\n\n【当前文件】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请用通俗易懂的语言解释。`
+  },
+  {
+    id: 'search',
+    label: '/search',
+    title: '搜索相关内容',
+    description: '搜索相关技术文档、最佳实践或解决方案',
+    icon: '🔎',
+    promptTemplate: (ctx) => `你是一个技术搜索助手。请帮助用户找到与以下问题相关的最佳解决方案：\n\n【当前文件上下文】\n${ctx.fileName ? `文件: ${ctx.fileName}` : '（未指定文件）'}\n\`\`\`\n${ctx.fileContent || '（文件内容为空）'}\n\`\`\`\n\n请搜索相关的技术文档、最佳实践、开源项目和解决方案，给出可操作的建议。`
+  }
+];
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  buildStats();
+  buildConfigAndModelSelect();
+  buildFileTree();
+  buildModelsList();
+  buildProvidersList();
+  refreshExportPreview();
+  setupInputHandler();
+  setupTabNav();
+  setupTempSlider();
+  setupTerminalToggle();
+  setupCommandPalette();
+  setupModelDropdown();
+  updateClock();
+  setInterval(updateClock, 1000);
+});
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    config = await res.json();
+  } catch (e) {
+    console.error('加载配置失败:', e);
+    config = { models: [] };
+  }
+}
+
+function buildStats() {
+  const enabledModels = config.models.filter(m => m.enabled);
+  const providers = [...new Set(enabledModels.map(m => m.provider))];
+  document.getElementById('statProviders').textContent = providers.length;
+  document.getElementById('statConfigs').textContent = enabledModels.length;
+  document.getElementById('statTemplates').textContent = SLASH_COMMANDS.length;
+  document.getElementById('statModels').textContent = enabledModels.length;
+}
+
+// ============================================================
+// 模型选择器
+// ============================================================
+function buildConfigAndModelSelect() {
+  const selectConfig = document.getElementById('selectConfig');
+  const selectModel = document.getElementById('selectModel');
+  const enabledModels = config.models.filter(m => m.enabled);
+
+  if (selectConfig) {
+    selectConfig.innerHTML = '<option value="">— Select Config —</option>' +
+      enabledModels.map(m => `<option value="${m.id}">${m.name} (${m.provider})</option>`).join('');
+    selectConfig.addEventListener('change', () => {
+      const id = selectConfig.value;
+      if (id) { selectModel.value = id; onModelSelected(id); }
+    });
+  }
+
+  if (selectModel) {
+    selectModel.innerHTML = '<option value="">— Select Model —</option>' +
+      enabledModels.map(m => `<option value="${m.id}">${m.modelName}</option>`).join('');
+    selectModel.addEventListener('change', () => onModelSelected(selectModel.value));
+  }
+
+  updateChatModelBadge();
+}
+
+function onModelSelected(modelId) {
+  const model = config.models.find(m => m.id === modelId);
+  const btn = document.getElementById('btnSend');
+  if (model) {
+    btn.disabled = false;
+    document.getElementById('statusModel').textContent = `${model.name} · ${model.modelName}`;
+    document.getElementById('chatModelName').textContent = model.name || model.modelName;
+  } else {
+    btn.disabled = true;
+    document.getElementById('statusModel').textContent = '未选择模型';
+    document.getElementById('chatModelName').textContent = '选择模型';
+  }
+  updateSendButton();
+}
+
+function updateChatModelBadge() {
+  const modelId = document.getElementById('selectModel')?.value;
+  const model = config.models.find(m => m.id === modelId);
+  document.getElementById('chatModelName').textContent = model ? (model.name || model.modelName) : '选择模型';
+}
+
+// ============================================================
+// 模型下拉菜单
+// ============================================================
+function setupModelDropdown() {
+  document.addEventListener('click', (e) => {
+    const badge = document.getElementById('chatModelBadge');
+    const dropdown = document.getElementById('modelDropdown');
+    if (!badge?.contains(e.target) && !dropdown?.contains(e.target)) {
+      if (dropdown) dropdown.style.display = 'none';
+    }
+  });
+}
+
+function toggleModelDropdown() {
+  const dropdown = document.getElementById('modelDropdown');
+  if (dropdown.style.display === 'none') {
+    renderModelDropdown();
+    dropdown.style.display = 'block';
+    document.getElementById('modelSearchInput')?.focus();
+  } else {
+    dropdown.style.display = 'none';
+  }
+}
+
+function renderModelDropdown(filter = '') {
+  const list = document.getElementById('modelDropdownList');
+  if (!list) return;
+  const enabledModels = config.models.filter(m => m.enabled);
+  const currentId = document.getElementById('selectModel')?.value;
+  const filtered = enabledModels.filter(m =>
+    (m.name || m.modelName).toLowerCase().includes(filter.toLowerCase()) ||
+    m.provider.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="model-dropdown-empty">没有匹配的模型</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(m => `
+    <div class="model-dropdown-item ${m.id === currentId ? 'active' : ''}"
+         onclick="selectModelFromDropdown('${m.id}')">
+      <span class="model-dropdown-icon">${getProviderIconSmall(m.provider)}</span>
+      <div class="model-dropdown-info">
+        <div class="model-dropdown-name">${escapeHtml(m.name || m.modelName)}</div>
+        <div class="model-dropdown-meta">${escapeHtml(m.provider)} · ${escapeHtml(m.modelName)}</div>
+      </div>
+      ${m.id === currentId ? '<span class="model-dropdown-check">✓</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function filterModelDropdown(value) { renderModelDropdown(value); }
+
+function selectModelFromDropdown(modelId) {
+  const sel = document.getElementById('selectModel');
+  if (sel) sel.value = modelId;
+  onModelSelected(modelId);
+  document.getElementById('modelDropdown').style.display = 'none';
+  showToast(`已切换: ${config.models.find(m => m.id === modelId)?.name}`, 'success');
+}
+
+function getProviderIconSmall(provider) {
+  const icons = { deepseek:'🔵', minimax:'🟠', openai:'⚪', anthropic:'🟡', siliconflow:'🟣', other:'🏢' };
+  return icons[provider] || '🏢';
+}
+
+// ============================================================
+// 命令面板 (Command Palette)
+// ============================================================
+function setupCommandPalette() {
+  const input = document.getElementById('chatInput');
+
+  input.addEventListener('input', (e) => {
+    const value = e.target.value;
+    if (value.startsWith('/')) {
+      const query = value.slice(1).toLowerCase();
+      showCommandPalette(query);
+    } else {
+      hideCommandPalette();
+    }
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (commandPaletteVisible) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); navigateCommandPalette(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCommandPalette(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); executeSelectedCommand(); }
+      else if (e.key === 'Escape') { hideCommandPalette(); }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.command-palette') && e.target.id !== 'chatInput') {
+      hideCommandPalette();
+    }
+  });
+}
+
+function showCommandPalette(filter = '') {
+  const palette = document.getElementById('commandPalette');
+  const list = document.getElementById('commandList');
+  commandPaletteVisible = true;
+  selectedCommandIndex = 0;
+
+  const filtered = SLASH_COMMANDS.filter(cmd =>
+    cmd.label.toLowerCase().includes(filter.toLowerCase()) ||
+    cmd.title.toLowerCase().includes(filter.toLowerCase()) ||
+    cmd.description.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  list.innerHTML = filtered.map((cmd, i) => `
+    <div class="command-item ${i === selectedCommandIndex ? 'selected' : ''}"
+         data-index="${i}" data-command="${cmd.id}" onclick="executeCommand('${cmd.id}')">
+      <span class="command-icon">${cmd.icon}</span>
+      <div class="command-info">
+        <div class="command-label">${cmd.label} <span class="command-title">— ${cmd.title}</span></div>
+        <div class="command-desc">${cmd.description}</div>
+      </div>
+    </div>
+  `).join('');
+
+  palette.style.display = 'block';
+}
+
+function hideCommandPalette() {
+  commandPaletteVisible = false;
+  const palette = document.getElementById('commandPalette');
+  if (palette) palette.style.display = 'none';
+}
+
+function navigateCommandPalette(direction) {
+  const items = document.querySelectorAll('.command-item');
+  if (!items.length) return;
+  items[selectedCommandIndex]?.classList.remove('selected');
+  selectedCommandIndex = Math.max(0, Math.min(items.length - 1, selectedCommandIndex + direction));
+  items[selectedCommandIndex]?.classList.add('selected');
+  items[selectedCommandIndex]?.scrollIntoView({ block: 'nearest' });
+}
+
+function executeSelectedCommand() {
+  const items = document.querySelectorAll('.command-item');
+  if (items[selectedCommandIndex]) {
+    executeCommand(items[selectedCommandIndex].dataset.command);
+  }
+}
+
+function executeCommand(commandId) {
+  const cmd = SLASH_COMMANDS.find(c => c.id === commandId);
+  if (!cmd) return;
+  activeSlashCommand = cmd;
+  hideCommandPalette();
+
+  const input = document.getElementById('chatInput');
+  input.value = cmd.label + ' ';
+  if (currentFile?.name) {
+    input.placeholder = cmd.label + ' 已选中: ' + currentFile.name + '，直接发送即可分析';
+  }
+  showToast('命令 ' + cmd.label + ' 已就绪，按 Enter 发送', 'success');
+  input.focus();
+}
+
+// ============================================================
+// 温度滑块
+// ============================================================
+function setupTempSlider() {
+  document.getElementById('sliderTemp').addEventListener('input', e => {
+    document.getElementById('tempValue').textContent = parseFloat(e.target.value).toFixed(1);
+  });
+}
+
+// ============================================================
+// 终端输出
+// ============================================================
+function setupTerminalToggle() {
+  document.getElementById('cbTerminal').addEventListener('change', e => {
+    const wrap = document.getElementById('terminalOutputWrap');
+    wrap.style.display = e.target.checked ? 'block' : 'none';
+    if (e.target.checked) document.getElementById('terminalOutput').focus();
+  });
+}
+
+function clearTerminalOutput() {
+  document.getElementById('terminalOutput').value = '';
+  showToast('终端输出已清空', 'success');
+}
+
+// ============================================================
+// Tab 导航
+// ============================================================
+function setupTabNav() {
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('panel-' + tab.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+}
+
+// ============================================================
+// 输入处理
+// ============================================================
+function setupInputHandler() {
+  const input = document.getElementById('chatInput');
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+  });
+}
+
+// ============================================================
+// 时钟
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('statusTime').textContent =
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0') + ':' +
+    String(now.getSeconds()).padStart(2,'0');
+}
+
+// ============================================================
+// 发送消息 (融合斜杠命令 + 文件上下文 + 终端输出)
+// ============================================================
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  let content = input.value.trim();
+  const modelId = document.getElementById('selectModel')?.value;
+  const cbCurrentFile = document.getElementById('cbCurrentFile')?.checked;
+  const cbTerminal = document.getElementById('cbTerminal')?.checked;
+  const terminalOut = cbTerminal ? document.getElementById('terminalOutput').value.trim() : '';
+  const temperature = parseFloat(document.getElementById('sliderTemp').value);
+
+  if (!content || !modelId || isStreaming) return;
+  hideCommandPalette();
+
+  // 检测并处理斜杠命令前缀
+  if (content.startsWith('/') && !activeSlashCommand) {
+    const cmd = SLASH_COMMANDS.find(c => content.startsWith(c.label + ' '));
+    if (cmd) { activeSlashCommand = cmd; content = content.slice(cmd.label.length + 1).trim() || ''; }
+  }
+
+  // 构建系统提示词
+  const systemMessages = [];
+  const userContent = content;
+
+  // 1. 斜杠命令系统提示词（优先级最高）
+  if (activeSlashCommand) {
+    const ctx = {
+      fileName: cbCurrentFile && currentFile ? currentFile.name : null,
+      fileContent: cbCurrentFile && currentFile ? currentFile.content : null,
+      terminalOutput: terminalOut || null,
+      userMessage: content
+    };
+    systemMessages.push({ role: 'system', content: activeSlashCommand.promptTemplate(ctx) });
+  }
+
+  // 2. 当前文件上下文（无斜杠命令时）
+  if (!activeSlashCommand && cbCurrentFile && currentFile && currentFile.content) {
+    systemMessages.push({ role: 'system', content: '【当前打开的文件: ' + currentFile.name + '】\n```\n' + currentFile.content + '\n```\n\n请结合以上文件内容回答问题。' });
+  }
+
+  // 3. 终端输出上下文
+  if (terminalOut) {
+    systemMessages.push({ role: 'system', content: '【终端输出】\n```\n' + terminalOut + '\n```\n' });
+  }
+
+  // 构建最终消息列表
+  const finalMessages = [...systemMessages, { role: 'user', content: userContent }];
+
+  messages.push({ role: 'user', content: userContent, command: activeSlashCommand?.id });
+  renderMessages();
+
+  input.value = '';
+  input.style.height = 'auto';
+  input.placeholder = '输入消息或 / 调出命令面板... (Enter 发送, Shift+Enter 换行)';
+  activeSlashCommand = null;
+  isStreaming = true;
+  updateSendButton();
+
+  const empty = document.getElementById('chatEmpty');
+  if (empty) empty.remove();
+
+  const assistantDiv = addMessageElement('assistant', '');
+  let fullContent = '';
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modelId, messages: finalMessages, stream: true, temperature })
+    });
+
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              updateMessageContent(assistantDiv, fullContent);
+            }
+            if (parsed.error) throw new Error(parsed.error);
+          } catch(e) {}
+        }
+      }
+    }
+
+    messages.push({ role: 'assistant', content: fullContent });
+    document.getElementById('statusTokens').textContent = 'Tokens: ~' + Math.ceil((fullContent.length + userContent.length) / 4);
+  } catch (e) {
+    console.error('AI 请求错误:', e);
+    updateMessageContent(assistantDiv, '❌ 错误: ' + e.message);
+    showToast('请求失败: ' + e.message, 'error');
+  } finally {
+    isStreaming = false;
+    updateSendButton();
+  }
+}
+
+// ============================================================
+// 消息渲染
+// ============================================================
+function renderMessages() {
+  const c = document.getElementById('chatMessages');
+  c.innerHTML = '';
+  messages.forEach(m => addMessageElement(m.role, m.content));
+}
+
+function addMessageElement(role, content) {
+  const c = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  const label = role === 'user' ? '👤' : '🤖';
+  div.innerHTML = '<div class="message-avatar">' + label + '</div><div class="message-content">' + formatMarkdown(content) + '</div>';
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+  return div;
+}
+
+function updateMessageContent(el, content) {
+  el.querySelector('.message-content').innerHTML = formatMarkdown(content);
+  el.parentElement.scrollTop = el.parentElement.scrollHeight;
+}
+
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+function formatMarkdown(text) {
+  if (!text) return '';
+  return escapeHtml(text)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '.replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\n/g, '<br>');
+}
+
+function updateSendButton() {
+  const btn = document.getElementById('btnSend');
+  btn.disabled = !document.getElementById('selectModel')?.value || isStreaming;
+  btn.textContent = isStreaming ? '⏳' : '↑';
+}
+
+// ============================================================
+// 文件树（模拟数据）
+// ============================================================
+const MOCK_FILES = [
+  { name: '📁 src', children: [
+      { name: '📄 index.js' }, { name: '📄 app.js' },
+      { name: '📁 utils', children: [{ name: '📄 helpers.js' }, { name: '📄 api.js' }] }
+    ]
+  },
+  { name: '📁 public' },
+  { name: '📄 package.json' }, { name: '📄 README.md' }, { name: '📄 .env' }
+];
+
+function buildFileTree() {
+  document.getElementById('fileTree').innerHTML = renderFileNodes(MOCK_FILES);
+}
+
+function renderFileNodes(nodes) {
+  return nodes.map(n => n.children
+    ? '<div class="file-folder"><div class="file-node folder" onclick="this.classList.toggle('\''open'\'')"><span class="file-arrow">▶</span> ' + n.name + '</div><div class="file-children">' + renderFileNodes(n.children) + '</div></div>'
+    : '<div class="file-node file" onclick="openFile(\'' + n.name + '\')" title="点击打开: ' + n.name + '">' + n.name + '</div>'
+  ).join('');
+}
+
+function openFile(filename) {
+  currentFile = { name: filename, path: filename, content: '// ' + filename + '\n// 从文件浏览器打开\n', readonly: false };
+  document.getElementById('editorTextarea').value = currentFile.content;
+  document.getElementById('editorFilename').textContent = filename;
+  document.getElementById('editorStatus').textContent = '编辑';
+  document.getElementById('editorGuide').style.display = 'none';
+  document.getElementById('editorTextarea').style.display = 'block';
+  showToast('已打开: ' + filename, 'success');
+}
+
+function editorNew() {
+  currentFile = null;
+  document.getElementById('editorTextarea').value = '';
+  document.getElementById('editorFilename').textContent = '—';
+  document.getElementById('editorStatus').textContent = '只读';
+  document.getElementById('editorGuide').style.display = 'flex';
+  document.getElementById('editorTextarea').style.display = 'none';
+  showToast('已新建空白文件（当前为只读模式）', 'success');
+}
+
+function editorReload() {
+  if (currentFile) {
+    document.getElementById('editorTextarea').value = currentFile.content;
+    showToast('已重载文件', 'success');
+  } else {
+    showToast('当前没有打开的文件', 'error');
+  }
+}
+
+function editorSave() {
+  if (currentFile) {
+    currentFile.content = document.getElementById('editorTextarea').value;
+    showToast('文件已保存', 'success');
+  } else {
+    showToast('当前没有打开的文件，无法保存', 'error');
+  }
+}
+
+// ============================================================
+// Toast 通知
+// ============================================================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = '<span class="toast-icon">' + (type === 'success' ? '✅' : '❌') + '</span><span class="toast-msg">' + message + '</span>';
+  container.appendChild(toast);
+  setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); }, 2500);
+}
+
+// ============================================================
+// Providers
+// ============================================================
+function buildProvidersList() {
+  const grid = document.getElementById('providersGrid');
+  const empty = document.getElementById('providersEmpty');
+  const em = config.models.filter(function(m) { return m.enabled; });
+  const map = {};
+  em.forEach(function(m) {
+    if (!map[m.provider]) map[m.provider] = { name: m.provider, count: 0, models: [] };
+    map[m.provider].count++;
+    map[m.provider].models.push(m);
+  });
+  const ps = Object.values(map);
+  if (!ps.length) { grid.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = ps.map(function(p) {
+    return '<div class="provider-card">' +
+      '<div class="provider-card-header">' +
+        '<div class="provider-icon">' + getProviderIcon(p.name) + '</div>' +
+        '<div class="provider-info">' +
+          '<div class="provider-name">' + p.name.charAt(0).toUpperCase() + p.name.slice(1) + '</div>' +
+          '<div class="provider-models-count">' + p.count + ' 个模型</div>' +
+        '</div>' +
+        '<div class="provider-toggle">' +
+          '<label class="toggle-switch">' +
+            '<input type="checkbox" ' + (p.models[0]?.enabled ? 'checked' : '') + ' onchange="toggleProvider(\'' + p.name + '\', this.checked)">' +
+            '<span class="toggle-slider"></span>' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="provider-models-list">' +
+        p.models.map(function(m) { return '<div class="provider-model-item">' + escapeHtml(m.name || m.modelName) + ' <span class="model-badge">' + escapeHtml(m.modelName) + '</span></div>'; }).join('') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function getProviderIcon(name) {
+  const icons = { deepseek:'🔵', minimax:'🟠', openai:'⚪', anthropic:'🟡', siliconflow:'🟣' };
+  return icons[name] || '🏢';
+}
+
+async function toggleProvider(providerName, enabled) {
+  try {
+    for (const m of config.models.filter(function(m) { return m.provider === providerName; })) {
+      await fetch('/api/models/' + m.id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled }) });
+      m.enabled = enabled;
+    }
+    buildStats(); buildConfigAndModelSelect(); buildProvidersList();
+    showToast((enabled?'启用':'禁用') + ' ' + providerName, 'success');
+  } catch (e) { showToast('操作失败: ' + e.message, 'error'); }
+}
+
+// ============================================================
+// Models
+// ============================================================
+function buildModelsList() {
+  const list = document.getElementById('modelsList');
+  const empty = document.getElementById('modelsEmpty');
+  if (!config.models || !config.models.length) { list.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = config.models.map(function(m) {
+    return '<div class="model-row ' + (m.enabled?'':'model-row-disabled') + '">' +
+      '<div class="model-row-info">' +
+        '<div class="model-row-name">' + escapeHtml(m.name || m.modelName) + '</div>' +
+        '<div class="model-row-meta">' +
+          '<span class="model-badge">' + escapeHtml(m.provider) + '</span>' +
+          '<span class="model-badge model-badge-url">' + escapeHtml(m.modelName) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="model-row-status" id="testStatus-' + m.id + '">' +
+        '<span class="status-badge ' + (m.enabled?'status-on':'status-off') + '">' + (m.enabled?'已启用':'已禁用') + '</span>' +
+      '</div>' +
+      '<div class="model-row-actions">' +
+        '<button class="btn-test" onclick="testModel(\'' + m.id + '\')" title="测试连接">🔗 测试</button>' +
+        '<button class="btn-edit" onclick="editModel(\'' + m.id + '\')" title="编辑">✏️</button>' +
+        '<button class="btn-delete" onclick="deleteModel(\'' + m.id + '\')" title="删除">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function testModel(modelId) {
+  const se = document.getElementById('testStatus-' + modelId);
+  se.innerHTML = '<span class="status-badge status-testing">测试中...</span>';
+  try {
+    const res = await fetch('/api/test/' + modelId);
+    const data = await res.json();
+    if (data.success) {
+      se.innerHTML = '<span class="status-badge status-on">✅ 正常</span>';
+      showToast('模型连接正常', 'success');
+    } else {
+      se.innerHTML = '<span class="status-badge status-error">❌ 失败</span>';
+      showToast('连接失败: ' + data.error, 'error');
+    }
+  } catch (e) {
+    se.innerHTML = '<span class="status-badge status-error">❌ 错误</span>';
+    showToast('测试失败: ' + e.message, 'error');
+  }
+}
+
+function editModel(modelId) {
+  const model = config.models.find(function(m) { return m.id === modelId; });
+  if (!model) return;
+  document.getElementById('modelModalTitle').textContent = '编辑模型';
+  document.getElementById('mId').value = model.id;
+  document.getElementById('mId').readOnly = true;
+  document.getElementById('mProvider').value = model.provider;
+  document.getElementById('mName').value = model.name || '';
+  document.getElementById('mApiKey').value = model.apiKey || '';
+  document.getElementById('mBaseUrl').value = model.baseUrl || '';
+  document.getElementById('mModelName').value = model.modelName || '';
+  document.getElementById('mEnabled').checked = model.enabled;
+  document.getElementById('modelModal').style.display = 'flex';
+}
+
+async function deleteModel(modelId) {
+  if (!confirm('确认删除此模型？')) return;
+  try {
+    const res = await fetch('/api/models/' + modelId, { method:'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      config.models = config.models.filter(function(m) { return m.id !== modelId; });
+      buildModelsList(); buildProvidersList(); buildStats(); buildConfigAndModelSelect(); refreshExportPreview();
+      showToast('模型已删除', 'success');
+    } else { showToast('删除失败: ' + data.error, 'error'); }
+  } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+}
+
+// ============================================================
+// 添加/编辑模型表单
+// ============================================================
+function openAddModelForm() {
+  document.getElementById('modelModalTitle').textContent = '添加模型';
+  document.getElementById('mId').value = '';
+  document.getElementById('mId').readOnly = false;
+  document.getElementById('mProvider').value = '';
+  document.getElementById('mName').value = '';
+  document.getElementById('mApiKey').value = '';
+  document.getElementById('mBaseUrl').value = '';
+  document.getElementById('mModelName').value = '';
+  document.getElementById('mEnabled').checked = true;
+  document.getElementById('modelModal').style.display = 'flex';
+}
+
+function closeModelForm() {
+  document.getElementById('modelModal').style.display = 'none';
+}
+
+async function saveModelForm() {
+  const id = document.getElementById('mId').value.trim();
+  const provider = document.getElementById('mProvider').value.trim();
+  const name = document.getElementById('mName').value.trim();
+  const apiKey = document.getElementById('mApiKey').value.trim();
+  const baseUrl = document.getElementById('mBaseUrl').value.trim();
+  const modelName = document.getElementById('mModelName').value.trim();
+  const enabled = document.getElementById('mEnabled').checked;
+
+  if (!id || !provider || !modelName) { showToast('请填写必填字段（模型 ID / 提供商 / 模型名称）', 'error'); return; }
+
+  const isEdit = document.getElementById('mId').readOnly;
+  try {
+    let res, data;
+    if (isEdit) {
+      res = await fetch('/api/models/' + id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ provider, name, apiKey, baseUrl, modelName, enabled }) });
+    } else {
+      res = await fetch('/api/models/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, provider, name, apiKey, baseUrl, modelName, enabled }) });
+    }
+    data = await res.json();
+    if (data.success) {
+      await loadConfig();
+      buildModelsList(); buildProvidersList(); buildStats(); buildConfigAndModelSelect(); refreshExportPreview();
+      closeModelForm();
+      showToast(isEdit ? '模型已更新' : '模型已添加', 'success');
+    } else { showToast(data.error || '保存失败', 'error'); }
+  } catch (e) { showToast('保存失败: ' + e.message, 'error'); }
+}
+
+// ============================================================
+// Exports
+// ============================================================
+async function refreshExportPreview() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    document.getElementById('configPreview').textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    document.getElementById('configPreview').textContent = '加载失败';
+  }
+}
+
+function exportConfig() {
+  const dataStr = JSON.stringify(config, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ai-hub-config.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('配置已导出', 'success');
+}
+
+async function importConfig(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.models) throw new Error('无效的配置文件');
+      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(imported) });
+      const data = await res.json();
+      if (data.success) {
+        await loadConfig();
+        buildStats(); buildConfigAndModelSelect(); buildModelsList(); buildProvidersList(); refreshExportPreview();
+        showToast('配置已导入', 'success');
+      } else { showToast('导入失败: ' + data.error, 'error'); }
+    } catch (err) { showToast('解析失败: ' + err.message, 'error'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+  </script>
+</body>
+</html>
