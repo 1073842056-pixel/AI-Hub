@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Hub - 配置</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 顶部栏 -->
+    <header class="header">
+      <div class="header-left">
+        <span class="header-title">⚙️ 模型配置</span>
+      </div>
+      <div class="header-right">
+        <button class="header-btn" onclick="goBack()">← 返回</button>
+      </div>
+    </header>
+    
+    <!-- 配置内容 -->
+    <main class="config-page">
+      <div class="config-header">
+        <h1 class="config-title">AI 模型配置</h1>
+        <p class="config-subtitle">管理你的 API Key 和模型设置。所有配置保存在本地，不会上传。</p>
+      </div>
+      
+      <!-- 预设快速添加 -->
+      <div class="preset-section">
+        <div class="preset-title">快速添加</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="addPreset('deepseek')">
+            🔵 DeepSeek
+          </button>
+          <button class="preset-btn" onclick="addPreset('minimax')">
+            🟠 MiniMax
+          </button>
+          <button class="preset-btn" onclick="addPreset('openai')">
+            ⚪ OpenAI
+          </button>
+          <button class="preset-btn" onclick="addPreset('anthropic')">
+            🟤 Claude
+          </button>
+          <button class="preset-btn" onclick="addPreset('siliconflow')">
+            🟣 硅基流动
+          </button>
+        </div>
+      </div>
+      
+      <!-- 模型卡片列表 -->
+      <div class="config-grid" id="modelGrid">
+        <!-- 由 JS 动态生成 -->
+      </div>
+      
+      <!-- 添加模型卡片 -->
+      <div class="add-model-card" onclick="openAddModal()">
+        <div class="add-model-icon">+</div>
+        <div class="add-model-text">添加自定义模型</div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- 添加/编辑模态框 -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">添加模型</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="modelForm">
+          <input type="hidden" id="modelId">
+          
+          <div class="form-group">
+            <label class="form-label">提供商</label>
+            <select class="form-select" id="modelProvider" required onchange="onProviderChange()">
+              <option value="">选择提供商</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="minimax">MiniMax</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">显示名称</label>
+            <input type="text" class="form-input" id="modelName" placeholder="例如：我的 DeepSeek" required>
+            <div class="form-hint">给自己起的名字，方便识别</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input type="password" class="form-input" id="modelApiKey" placeholder="sk-..." required>
+            <div class="form-hint">API Key 不会上传，仅保存在本地</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input type="text" class="form-input" id="modelBaseUrl" placeholder="https://api.example.com/v1" required>
+            <div class="form-hint">API 接口地址，通常以 /v1 结尾</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">模型名称</label>
+            <input type="text" class="form-input" id="modelName2" placeholder="例如：deepseek-chat" required>
+            <div class="form-hint">模型标识符，如 deepseek-chat、gpt-4o-mini 等</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">
+              <input type="checkbox" id="modelEnabled" checked style="margin-right: 8px;">
+              启用此模型
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn primary" onclick="saveModel()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ============================================
+    // 全局状态
+    // ============================================
+    let config = { models: [] };
+
+    // 预设配置模板
+    const PRESETS = {
+      deepseek: {
+        provider: 'deepseek',
+        name: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        modelName: 'deepseek-chat',
+        apiKey: '',
+        enabled: true
+      },
+      minimax: {
+        provider: 'minimax',
+        name: 'MiniMax',
+        baseUrl: 'https://api.minimax.chat/v1',
+        modelName: 'abab6.5s-chat',
+        apiKey: '',
+        enabled: true
+      },
+      openai: {
+        provider: 'openai',
+        name: 'OpenAI GPT-4',
+        baseUrl: 'https://api.openai.com/v1',
+        modelName: 'gpt-4o-mini',
+        apiKey: '',
+        enabled: true
+      },
+      anthropic: {
+        provider: 'anthropic',
+        name: 'Claude',
+        baseUrl: 'https://api.anthropic.com',
+        modelName: 'claude-sonnet-4-20250514',
+        apiKey: '',
+        enabled: true
+      },
+      siliconflow: {
+        provider: 'siliconflow',
+        name: '硅基流动',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        modelName: 'Qwen/Qwen2.5-72B-Instruct',
+        apiKey: '',
+        enabled: true
+      }
+    };
+
+    // ============================================
+    // 初始化
+    // ============================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadConfig();
+      renderModelGrid();
+    });
+
+    /**
+     * 加载配置
+     */
+    async function loadConfig() {
+      try {
+        if (window.aiHub?.isElectron) {
+          config = await window.aiHub.getConfig();
+        } else {
+          const res = await fetch('/api/config');
+          config = await res.json();
+        }
+      } catch (e) {
+        console.error('加载配置失败:', e);
+        config = { models: [] };
+      }
+    }
+
+    /**
+     * 保存配置
+     */
+    async function saveConfigToBackend() {
+      try {
+        if (window.aiHub?.isElectron) {
+          await window.aiHub.saveConfig(config);
+        } else {
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+          });
+        }
+        showToast('配置已保存', 'success');
+      } catch (e) {
+        console.error('保存配置失败:', e);
+        showToast('保存配置失败', 'error');
+      }
+    }
+
+    /**
+     * 渲染模型卡片列表
+     */
+    function renderModelGrid() {
+      const grid = document.getElementById('modelGrid');
+      
+      if (config.models.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted);">
+            还没有配置任何模型<br>
+            <span style="font-size: 13px;">使用上方的「快速添加」开始</span>
+          </div>
+        `;
+        return;
+      }
+      
+      grid.innerHTML = config.models.map(model => `
+        <div class="model-card">
+          <div class="model-card-header">
+            <div class="model-card-icon">${getProviderIcon(model.provider)}</div>
+            <div class="model-card-title">
+              <div class="model-card-name">${escapeHtml(model.name)}</div>
+              <div class="model-card-provider">${escapeHtml(model.provider)}</div>
+            </div>
+            <label class="model-card-toggle">
+              <input type="checkbox" ${model.enabled ? 'checked' : ''} 
+                     onchange="toggleModel('${model.id}', this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="model-card-info">
+            <div><span>Base URL:</span><span>${escapeHtml(model.baseUrl)}</span></div>
+            <div><span>模型:</span><span>${escapeHtml(model.modelName)}</span></div>
+            <div><span>API Key:</span><span>${maskApiKey(model.apiKey)}</span></div>
+          </div>
+          <div class="model-card-actions">
+            <button class="model-card-btn" onclick="testModel('${model.id}')">🧪 测试</button>
+            <button class="model-card-btn" onclick="editModel('${model.id}')">✏️ 编辑</button>
+            <button class="model-card-btn danger" onclick="deleteModel('${model.id}')">🗑️ 删除</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /**
+     * 获取提供商图标
+     */
+    function getProviderIcon(provider) {
+      const icons = {
+        'deepseek': '🔵',
+        'minimax': '🟠',
+        'openai': '⚪',
+        'anthropic': '🟤',
+        'siliconflow': '🟣',
+        'custom': '⚙️'
+      };
+      return icons[provider?.toLowerCase()] || '🤖';
+    }
+
+    /**
+     * 遮罩 API Key
+     */
+    function maskApiKey(key) {
+      if (!key) return '未设置';
+      if (key.length < 8) return '***';
+      return '***' + key.slice(-4);
+    }
+
+    /**
+     * 添加预设模型
+     */
+    function addPreset(provider) {
+      const preset = PRESETS[provider];
+      if (!preset) return;
+      
+      // 检查是否已存在
+      if (config.models.some(m => m.provider === provider)) {
+        showToast(`${preset.name} 已存在，请编辑现有配置`, 'error');
+        return;
+      }
+      
+      // 填充表单
+      document.getElementById('modelProvider').value = preset.provider;
+      document.getElementById('modelName').value = preset.name;
+      document.getElementById('modelBaseUrl').value = preset.baseUrl;
+      document.getElementById('modelName2').value = preset.modelName;
+      document.getElementById('modelApiKey').value = '';
+      document.getElementById('modelApiKey').placeholder = `输入 ${preset.name} 的 API Key`;
+      document.getElementById('modelEnabled').checked = true;
+      document.getElementById('modelId').value = '';
+      document.getElementById('modalTitle').textContent = `添加 ${preset.name}`;
+      
+      openModal();
+    }
+
+    /**
+     * 打开添加模态框
+     */
+    function openAddModal() {
+      document.getElementById('modelForm').reset();
+      document.getElementById('modelId').value = '';
+      document.getElementById('modalTitle').textContent = '添加模型';
+      document.getElementById('modelEnabled').checked = true;
+      openModal();
+    }
+
+    /**
+     * 编辑模型
+     */
+    function editModel(modelId) {
+      const model = config.models.find(m => m.id === modelId);
+      if (!model) return;
+      
+      document.getElementById('modelId').value = model.id;
+      document.getElementById('modelProvider').value = model.provider;
+      document.getElementById('modelName').value = model.name;
+      document.getElementById('modelApiKey').value = model.apiKey;
+      document.getElementById('modelBaseUrl').value = model.baseUrl;
+      document.getElementById('modelName2').value = model.modelName;
+      document.getElementById('modelEnabled').checked = model.enabled;
+      document.getElementById('modalTitle').textContent = '编辑模型';
+      
+      openModal();
+    }
+
+    /**
+     * 保存模型
+     */
+    function saveModel() {
+      const id = document.getElementById('modelId').value;
+      const provider = document.getElementById('modelProvider').value;
+      const name = document.getElementById('modelName').value.trim();
+      const apiKey = document.getElementById('modelApiKey').value.trim();
+      const baseUrl = document.getElementById('modelBaseUrl').value.trim();
+      const modelName = document.getElementById('modelName2').value.trim();
+      const enabled = document.getElementById('modelEnabled').checked;
+      
+      // 验证
+      if (!provider || !name || !apiKey || !baseUrl || !modelName) {
+        showToast('请填写所有必填字段', 'error');
+        return;
+      }
+      
+      const modelData = {
+        id: id || generateId(),
+        provider,
+        name,
+        apiKey,
+        baseUrl,
+        modelName,
+        enabled
+      };
+      
+      if (id) {
+        // 更新现有
+        const index = config.models.findIndex(m => m.id === id);
+        if (index !== -1) {
+          // 保留原来的 apiKey 如果新的是空的
+          if (!apiKey) {
+            modelData.apiKey = config.models[index].apiKey;
+          }
+          config.models[index] = modelData;
+        }
+      } else {
+        // 添加新模型
+        config.models.push(modelData);
+      }
+      
+      saveConfigToBackend().then(() => {
+        renderModelGrid();
+        closeModal();
+      });
+    }
+
+    /**
+     * 删除模型
+     */
+    function deleteModel(modelId) {
+      if (!confirm('确定要删除这个模型配置吗？')) return;
+      
+      config.models = config.models.filter(m => m.id !== modelId);
+      saveConfigToBackend().then(() => {
+        renderModelGrid();
+      });
+    }
+
+    /**
+     * 切换模型启用状态
+     */
+    function toggleModel(modelId, enabled) {
+      const model = config.models.find(m => m.id === modelId);
+      if (model) {
+        model.enabled = enabled;
+        saveConfigToBackend();
+      }
+    }
+
+    /**
+     * 测试模型连接
+     */
+    async function testModel(modelId) {
+      const model = config.models.find(m => m.id === modelId);
+      if (!model) return;
+      
+      showToast(`正在测试 ${model.name}...`, 'success');
+      
+      try {
+        let result;
+        if (window.aiHub?.isElectron) {
+          result = await window.aiHub.testModel(modelId);
+        } else {
+          const res = await fetch(`/api/test/${modelId}`);
+          result = await res.json();
+        }
+        
+        if (result.success) {
+          showToast(`${model.name} 连接成功！`, 'success');
+        } else {
+          showToast(`连接失败: ${result.error}`, 'error');
+        }
+      } catch (e) {
+        showToast(`测试失败: ${e.message}`, 'error');
+      }
+    }
+
+    /**
+     * 提供商变更时自动填充
+     */
+    function onProviderChange() {
+      const provider = document.getElementById('modelProvider').value;
+      const preset = PRESETS[provider];
+      
+      if (preset) {
+        if (!document.getElementById('modelName').value) {
+          document.getElementById('modelName').value = preset.name;
+        }
+        if (!document.getElementById('modelBaseUrl').value) {
+          document.getElementById('modelBaseUrl').value = preset.baseUrl;
+        }
+        if (!document.getElementById('modelName2').value) {
+          document.getElementById('modelName2').value = preset.modelName;
+        }
+        if (!document.getElementById('modelApiKey').value) {
+          document.getElementById('modelApiKey').placeholder = `输入 ${preset.name} 的 API Key`;
+        }
+      }
+    }
+
+    /**
+     * 生成唯一 ID
+     */
+    function generateId() {
+      return 'model_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    /**
+     * HTML 转义
+     */
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /**
+     * 打开模态框
+     */
+    function openModal() {
+      document.getElementById('addModal').classList.add('active');
+    }
+
+    /**
+     * 关闭模态框
+     */
+    function closeModal() {
+      document.getElementById('addModal').classList.remove('active');
+    }
+
+    /**
+     * 返回主页
+     */
+    function goBack() {
+      if (window.aiHub?.isElectron) {
+        window.location.href = 'index.html';
+      } else {
+        window.location.href = 'index.html';
+      }
+    }
+
+    /**
+     * 显示 Toast 通知
+     */
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <span class="toast-icon">${type === 'success' ? '✅' : '❌'}</span>
+        <span class="toast-message">${message}</span>
+      `;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // 点击模态框外部关闭
+    document.getElementById('addModal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>
